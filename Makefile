@@ -1,14 +1,14 @@
-CC = gcc-5 
-CXX = g++-5 -std=gnu++0x
+CC = gcc
+CXX = g++ -std=gnu++0x
 DEPSDIR := masstree/.deps
-DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP
-MEMMGR = -lpapi -ltcmalloc_minimal
-CFLAGS = -g -O3 -Wno-invalid-offsetof -mcx16 -DNDEBUG -DBWTREE_NODEBUG $(DEPCFLAGS) -include masstree/config.h
+DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP -latomic
+MEMMGR = -lpapi -ltcmalloc_minimal -latomic
+CFLAGS = -g -O3 -Wno-invalid-offsetof -mcx16 -DNDEBUG -DBWTREE_NODEBUG $(DEPCFLAGS) -include masstree/config.h -include btree-rtm/btree.h -lpapi -latomic
 
 # By default just use 1 thread. Override this option to allow running the
 # benchmark with 20 threads. i.e. THREAD_NUM=20 make run_all_atrloc
-THREAD_NUM?=1
-TYPE?=bwtree
+THREAD_NUM?=4
+TYPE?=masstree
 
 # Can also change it to rotate skiplist
 SL_DIR=./nohotspot-skiplist
@@ -30,24 +30,21 @@ run_all: workload workload_string
 	./workload a rand $(TYPE) $(THREAD_NUM) 
 	./workload c rand $(TYPE) $(THREAD_NUM)
 	./workload e rand $(TYPE) $(THREAD_NUM)
-	./workload a mono $(TYPE) $(THREAD_NUM) 
-	./workload c mono $(TYPE) $(THREAD_NUM)
-	./workload e mono $(TYPE) $(THREAD_NUM)
 	./workload_string a email $(TYPE) $(THREAD_NUM)
 	./workload_string c email $(TYPE) $(THREAD_NUM)
 	./workload_string e email $(TYPE) $(THREAD_NUM)
 
 workload.o: workload.cpp microbench.h index.h util.h ./masstree/mtIndexAPI.hh ./BwTree/bwtree.h BTreeOLC/BTreeOLC.h BTreeOLC/BTreeOLC_child_layout.h ./pcm/pcm-memory.cpp ./pcm/pcm-numa.cpp ./papi_util.cpp
-	$(CXX) $(CFLAGS) -c -o workload.o workload.cpp
+	$(CXX) $(CFLAGS) -c -o workload.o workload.cpp -latomic
 
 workload: skiplist-clean workload.o bwtree.o artolc.o btree.o ./masstree/mtIndexAPI.a ./pcm/libPCM.a $(SL_OBJS)
 	$(CXX) $(CFLAGS) -o workload workload.o bwtree.o artolc.o btree.o $(SL_OBJS) masstree/mtIndexAPI.a ./pcm/libPCM.a $(MEMMGR) -lpthread -lm -ltbb
 
-workload_string.o: workload_string.cpp microbench.h index.h util.h ./masstree/mtIndexAPI.hh ./BwTree/bwtree.h BTreeOLC/BTreeOLC.h skiplist-clean
+workload_string.o: workload_string.cpp microbench.h index.h util.h ./masstree/mtIndexAPI.hh ./BwTree/bwtree.h BTreeOLC/BTreeOLC.h ./btree-rtm/btree.h skiplist-clean
 	$(CXX) $(CFLAGS) -c -o workload_string.o workload_string.cpp
 
-workload_string: skiplist-clean workload_string.o bwtree.o artolc.o ./masstree/mtIndexAPI.a $(SL_OBJS)
-	$(CXX) $(CFLAGS) -o workload_string workload_string.o bwtree.o artolc.o  $(SL_OBJS) masstree/mtIndexAPI.a $(MEMMGR) -lpthread -lm -ltbb
+workload_string: skiplist-clean workload_string.o bwtree.o artolc.o ./masstree/mtIndexAPI.a $(SL_OBJS) ./btree-rtm/btree.h
+	$(CXX) $(CFLAGS) -o workload_string workload_string.o bwtree.o artolc.o btree.o $(SL_OBJS) masstree/mtIndexAPI.a $(MEMMGR) -lpthread -lm -ltbb
 
 bwtree.o: ./BwTree/bwtree.h ./BwTree/bwtree.cpp
 	$(CXX) $(CFLAGS) -c -o bwtree.o ./BwTree/bwtree.cpp

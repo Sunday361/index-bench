@@ -36,25 +36,40 @@ void InitInstMonitor() {
   return;
 }
 
-void StartInstMonitor() {
+int StartInstMonitor() {
   int events[PAPI_INST_EVENT_COUNT] = \
     /*{PAPI_LD_INS, PAPI_SR_INS, */{PAPI_BR_INS, PAPI_TOT_CYC, PAPI_TOT_INS, PAPI_BR_MSP};
-  long long counters[PAPI_INST_EVENT_COUNT];
   int retval;
+  int event_set = PAPI_NULL;
 
-  if ((retval = PAPI_start_counters(events, PAPI_INST_EVENT_COUNT)) != PAPI_OK) {
+  retval = PAPI_create_eventset(&event_set);
+  if (retval != PAPI_OK) {
     fprintf(stderr, "PAPI failed to start counters: %s\n", PAPI_strerror(retval));
+    exit(1);
+  } 
+
+  for (int i = 0; i < PAPI_INST_EVENT_COUNT; ++i) {
+    retval = PAPI_add_event(event_set, events[i]);
+    if (retval != PAPI_OK) {
+        fprintf(stderr, "Error adding event: %s\n", PAPI_strerror(retval));
+        exit(1);
+    }
+  }
+
+  retval = PAPI_start(event_set);
+  if (retval != PAPI_OK) {
+    fprintf(stderr, "Error starting counters: %s\n", PAPI_strerror(retval));
     exit(1);
   }
 
-  return;
+  return event_set;
 }
 
-void EndInstMonitor() {
+void EndInstMonitor(int event_set) {
   long long counters[PAPI_INST_EVENT_COUNT];
   int retval;
 
-  if ((retval = PAPI_stop_counters(counters, PAPI_INST_EVENT_COUNT)) != PAPI_OK) {
+  if ((retval = PAPI_stop(event_set, counters)) != PAPI_OK) {
     fprintf(stderr, "PAPI failed to stop counters: %s\n", PAPI_strerror(retval));
     exit(1);
   }
@@ -72,29 +87,45 @@ void EndInstMonitor() {
 /*
  * StartCacheMonitor() - Uses PAPI Library to start monitoring L1, L2, L3 cache misses  
  */
-void StartCacheMonitor() {
+int StartCacheMonitor() {
   int events[PAPI_CACHE_EVENT_COUNT] = \
     {PAPI_L1_TCM, PAPI_L2_TCM, PAPI_L3_TCM};//, PAPI_LD_INS, PAPI_SR_INS};
   long long counters[PAPI_CACHE_EVENT_COUNT];
   int retval;
+  int event_set = PAPI_NULL;
 
-  if ((retval = PAPI_start_counters(events, PAPI_CACHE_EVENT_COUNT)) != PAPI_OK) {
+  retval = PAPI_create_eventset(&event_set);
+  if (retval != PAPI_OK) {
     fprintf(stderr, "PAPI failed to start counters: %s\n", PAPI_strerror(retval));
     exit(1);
+  } 
+
+  for (int i = 0; i < PAPI_INST_EVENT_COUNT; ++i) {
+    retval = PAPI_add_event(event_set, events[i]);
+    if (retval != PAPI_OK) {
+        fprintf(stderr, "Error adding event: %s\n", PAPI_strerror(retval));
+        exit(1);
+    }
   }
 
-  return;
+  retval = PAPI_start(event_set);
+  if (retval != PAPI_OK) {
+    fprintf(stderr, "Error starting counters: %s\n", PAPI_strerror(retval));
+    exit(1);
+  }
+ 
+  return event_set;
 }
 
 /*
  * EndCacheMonitor() - Ends and prints PAPI result on cache misses 
  */
-void EndCacheMonitor() {
+void EndCacheMonitor(int event_set) {
   // We use this array to receive counter values
   long long counters[PAPI_CACHE_EVENT_COUNT];
   int retval;
 
-  if ((retval = PAPI_stop_counters(counters, PAPI_CACHE_EVENT_COUNT)) != PAPI_OK) {
+  if ((retval = PAPI_stop(event_set, counters)) != PAPI_OK) {
     fprintf(stderr, "PAPI failed to stop counters: %s\n", PAPI_strerror(retval));
     exit(1);
   }

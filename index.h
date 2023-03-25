@@ -84,21 +84,21 @@ class BTreeRTMIndex : public Index<KeyType, KeyComparator>
   void UnregisterThread(size_t thread_id) {}
 
   bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-    bt_insert(tree, (uint64_t)key, value);
+    bt_insert(tree, *(uint64_t *)&key, value);
     return true;
   }
 
   uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
     uint64_t result;
     int success;
-    result = bt_find(tree, key, &success);
+    result = bt_find(tree, *(uint64_t *)&key, &success);
     v->clear();
     v->push_back(result);
     return 0;
   }
 
   bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-    bt_upsert(tree, (uint64_t)key, value);
+    bt_upsert(tree, *(uint64_t *)&key, value);
     return true;
   }
 
@@ -157,7 +157,7 @@ class SkipListIndex : public Index<KeyType, KeyComparator> {
   }
 
   bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-    sl_insert(&skiplist_steps, set, key, &value);
+    sl_insert(&skiplist_steps, set, *(uint64_t *)&key, &value);
     (void)ti;
     return true;
   }
@@ -167,7 +167,7 @@ class SkipListIndex : public Index<KeyType, KeyComparator> {
     // This is fine, because it still traverses to the location that
     // the key is stored. We just call push_back() with an arbitraty
     // number to compensate for lacking a value
-    sl_contains(&skiplist_steps, set, key);
+    sl_contains(&skiplist_steps, set, *(uint64_t *)&key);
     (void)v; (void)ti;
     v->clear();
     v->push_back(0);
@@ -177,14 +177,14 @@ class SkipListIndex : public Index<KeyType, KeyComparator> {
   bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
     // Upsert is implemented as two operations. In practice if we change
     // the internals of the skiplist, we can make it one atomic step
-    sl_delete(&skiplist_steps, set, key);
-    sl_insert(&skiplist_steps, set, key, &value);
+    sl_delete(&skiplist_steps, set, *(uint64_t *)&key);
+    sl_insert(&skiplist_steps, set, *(uint64_t *)&key, &value);
     (void)ti;
     return true;
   }
 
   uint64_t scan(KeyType key, int range, threadinfo *ti) {
-    sl_scan(&skiplist_steps, set, key, range);
+    sl_scan(&skiplist_steps, set, *(uint64_t *)&key, range);
     (void)ti;
     return 0UL;
   }

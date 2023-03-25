@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // The following are options that control the algorithmic / data layout properties
 #define BTREE_NOPTR // Enable this to remove sibling pointer
 #define BTREE_BINSEARCH // Enable this to perform binary search for node size > 8
@@ -91,5 +94,10 @@ int bt_insert(btree_t *tree, uint64_t key, uint64_t value);
 int bt_remove(btree_t *tree, uint64_t key);
 uint64_t bt_find(btree_t *tree, uint64_t key, int *success);
 int bt_upsert(btree_t *tree, uint64_t key, uint64_t value);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
