@@ -30,8 +30,11 @@ enum {
 // These are YCSB workloads
 enum {
   WORKLOAD_A,
+  WORKLOAD_B,
   WORKLOAD_C,
+  WORKLOAD_D,
   WORKLOAD_E,
+  WORKLOAD_F,
 };
 
 // These are key types we use for running the benchmark

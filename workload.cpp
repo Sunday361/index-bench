@@ -8,9 +8,15 @@
 #include <cstring>
 #include <cctype>
 #include <atomic>
+#include <chrono>
 
 thread_local long skiplist_steps = 0;
 std::atomic<long> skiplist_total_steps;
+
+inline std::chrono::high_resolution_clock::time_point get_now()
+{
+  return std::chrono::high_resolution_clock::now(); 
+} 
 
 //#define USE_TBB
 
@@ -99,12 +105,21 @@ inline void load(int wl,
   if (kt == RAND_KEY && wl == WORKLOAD_A) {
     init_file = "workloads/loada_zipf_int_100M.dat";
     txn_file = "workloads/txnsa_zipf_int_100M.dat";
+  } else if (kt == RAND_KEY && wl == WORKLOAD_B) {
+    init_file = "workloads/loadb_zipf_int_100M.dat";
+    txn_file = "workloads/txnsb_zipf_int_100M.dat";
   } else if (kt == RAND_KEY && wl == WORKLOAD_C) {
     init_file = "workloads/loadc_zipf_int_100M.dat";
     txn_file = "workloads/txnsc_zipf_int_100M.dat";
+  } else if (kt == RAND_KEY && wl == WORKLOAD_D) {
+    init_file = "workloads/loadd_zipf_int_100M.dat";
+    txn_file = "workloads/txnsd_zipf_int_100M.dat";
   } else if (kt == RAND_KEY && wl == WORKLOAD_E) {
     init_file = "workloads/loade_zipf_int_100M.dat";
     txn_file = "workloads/txnse_zipf_int_100M.dat";
+  } else if (kt == RAND_KEY && wl == WORKLOAD_F) {
+    init_file = "workloads/loadf_zipf_int_100M.dat";
+    txn_file = "workloads/txnsf_zipf_int_100M.dat";
   } else if (kt == MONO_KEY && wl == WORKLOAD_A) {
     init_file = "workloads/mono_inc_loada_zipf_int_100M.dat";
     txn_file = "workloads/mono_inc_txnsa_zipf_int_100M.dat";
@@ -399,13 +414,15 @@ inline void exec(int wl,
  
     threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 
+    std::map<uint64_t, uint64_t> counts;
+
     int counter = 0;
     for(size_t i = start_index;i < end_index;i++) {
       int op = ops[i];
+      auto t1 = get_now();
       if (op == OP_INSERT) { //INSERT
         idx->insert(keys[i], values[i], ti);
-      }
-      else if (op == OP_READ) { //READ
+      } else if (op == OP_READ) { //READ
         v.clear();
 
 #ifdef BWTREE_USE_MAPPING_TABLE
@@ -435,11 +452,33 @@ inline void exec(int wl,
       if(counter % 4096 == 0) {
         ti->rcu_quiesce();
       }
+      auto t2 = get_now();
+
+      auto t3 = std::chrono::duration_cast<std::chrono::nanosecond>(t2 - t1).count();
+
+      counts[t3]++;
     }
 
     // Perform GC after all operations
     ti->rcu_quiesce();
     
+    uint64_t c90 = (double)counts.size() * 0.9;
+    uint64_t c95 = (double)counts.size() * 0.95;
+    uint64_t c99 = (double)counts.size() * 0.99;
+    uint64_t p90, p95, p99;
+    uint64_t ctotal = 0;
+    for (auto &[k, v] : counts) {
+      ctotal += v;
+      if (ctotal == c90) {
+        p90 = k;
+      } else if (ctotal == c95) {
+        p95 = k;
+      } else if (ctotal == c99) {
+        p99 = k;
+      }
+    }
+    printf("p90 %lu, p95 %lu, p99 %lu \n", 
+          p90, p95, p99);
     return;
   };
 
@@ -470,6 +509,10 @@ inline void exec(int wl,
           read_miss_counter.load(),
           read_hit_counter.load());
 #endif
+
+  for (size_t ii = 0; ii < counts.size(); ii++) {
+
+  }
 
   tput = txn_num / (end_time - start_time) / 1000000; //Mops/sec
 
@@ -586,6 +629,12 @@ int main(int argc, char *argv[]) {
     wl = WORKLOAD_C;
   } else if (strcmp(argv[1], "e") == 0) {
     wl = WORKLOAD_E;
+  } else if (strcmp(argv[1], "b") == 0) {
+    wl = WORKLOAD_B;
+  } else if (strcmp(argv[1], "d") == 0) {
+    wl = WORKLOAD_D;
+  } else if (strcmp(argv[1], "f") == 0) {
+    wl = WORKLOAD_F;
   } else {
     fprintf(stderr, "Unknown workload: %s\n", argv[1]);
     exit(1);
